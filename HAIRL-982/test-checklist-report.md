@@ -1,10 +1,10 @@
-# Admin Dashboard — Automated Test Checklist & Report
+# Provider Dashboard — Automated Test Checklist & Report
 
 **Date:** 2026-03-10
-**Dashboard:** Admin/Hairline Team Dashboard
-**Tester:** Nhut (executed with Cursor AI)
+**Dashboard:** Provider Dashboard
+**Tester:** Cursor AI Assistant
 **Test Run Date:** 2026-03-18
-**Build/Commit:** N/A (workspace snapshot, non-git root)
+**Build/Commit:** N/A (workspace has separate FE/BE git repositories)
 
 ---
 
@@ -14,734 +14,666 @@
 
 1. Read `test-requirements.md` in this folder and `testing-strategy.md` in the parent folder.
 2. Set up the local environment per the checklist in `test-requirements.md`.
-3. Seed the database with `FullSeeder` + additional admin seeders.
+3. Seed the database with `FullSeeder`.
 
 ### Writing Test Scripts
 
-1. Each row = one test case (or one parameterized test group).
+1. Each row in the checklist = one test case (or one parameterized test group).
 2. Use the **TC ID** as the test name/description in your spec file.
-3. **Preconditions** = setup/fixtures needed.
-4. **Expected Result** = your assertion target.
-5. Rows marked **[PARAM]** = parameterized tests (data providers or loops).
+3. The **Preconditions** column tells you what setup/fixtures are needed.
+4. The **Expected Result** column is your assertion target.
+5. Rows marked **[PARAM]** require parameterized tests — implement with data providers (PHPUnit) or `for` loops / `test.describe` (Playwright).
 
-### Filling In Results
+### Filling In Results After Each Test Run
+
+For each test case row, fill in:
 
 | Field | How to Fill |
 |-------|------------|
-| **Status** | `PASS` — test passed. `FAIL` — assertion failed. `BLOCKED` — could not run (dependency/env issue). `SKIP` — intentionally skipped (explain in Notes). |
-| **Actual Result** | PASS: leave blank or "As expected". FAIL: one sentence describing what happened vs what was expected. |
-| **Severity** | FAIL only. `Critical` (blocks flow, data loss/corruption). `High` (major feature broken). `Medium` (works partially or workaround exists). `Low` (cosmetic, minor). |
-| **Notes** | Optional. Root cause hypothesis, related tests, flaky behavior, environment issues. |
+| **Status** | `PASS` — test passed. `FAIL` — assertion failed. `BLOCKED` — could not run due to dependency/environment issue. `SKIP` — intentionally skipped (explain in Notes). |
+| **Actual Result** | If PASS: leave blank or write "As expected". If FAIL: describe what happened (e.g., "returned 500 instead of 422", "button not found", "total showed $450 instead of $500"). Keep it factual, one sentence. |
+| **Severity** | If FAIL: `Critical` (blocks treatment flow, data loss), `High` (major feature broken), `Medium` (feature partially works or workaround exists), `Low` (cosmetic or minor). If PASS: leave blank. |
+| **Notes** | Optional. Use for: root cause hypothesis, related failing tests, environment issues, flaky behavior. |
+
+### TC ID Numbering
+
+Some TC IDs are non-sequential (e.g., P-ONB-005 → P-ONB-008). These gaps are intentional — test cases were removed during scope refinement. Do not treat missing IDs as missing tests; the checklist below is the complete set.
+
+### After Testing
+
+1. Count totals: total PASS, FAIL, BLOCKED, SKIP.
+2. List all FAIL items grouped by severity in the [Summary section](#summary) at the bottom.
+3. For each FAIL, write the gap: what business rule is violated, what is the risk if unfixed.
 
 ### Parameterized Test Guidelines
 
 When defining the parameter list for a `[PARAM]` test case:
 
-1. **Boundary values**: Identify the min and max of each input range. Include values at the boundary (min, max), just below min, and just above max to verify enforcement.
-2. **Valid inputs**: Cover the happy path with at least 2-3 representative values spread across the allowed range (e.g., low, mid, high).
-3. **Invalid inputs**: Include at least one value below range, one above range, one null/empty, and one wrong-type input (e.g., text where number expected).
-4. **Special values**: Test zero, negative numbers, maximum precision decimals, and very large numbers where applicable.
-5. **Expected output per parameter set**: Each row in the parameterized table MUST state the specific expected output for that input combination. Do not use generic "should work" assertions.
-6. **Derived calculations**: For computed fields (deposit amount, commission, installment), show the exact math so the tester can verify precision.
-7. **Edge combinations**: When multiple parameters interact (e.g., amount + currency + deposit %), test at least one combination of extreme values together.
-
-### TC ID Numbering
-
-Some TC IDs are non-sequential (e.g., A-SMK-005 → A-SMK-007). These gaps are intentional — test cases were removed during scope refinement. Do not treat missing IDs as missing tests; the checklist below is the complete set.
-
-### After Testing
-
-1. Fill the [Summary section](#summary) at the bottom.
-2. Count PASS/FAIL/BLOCKED/SKIP.
-3. Group all FAILs by severity.
-4. For each FAIL, describe the business gap and risk.
+1. **Identify boundaries:** Include the minimum valid value, maximum valid value, one below minimum, one above maximum, and a typical middle value.
+2. **Include valid and invalid inputs:** Every parameterized set should have at least one clearly valid and one clearly invalid input to verify both acceptance and rejection.
+3. **Document expected output per row:** Each parameter row must state the specific expected result (not just "pass/fail" — state what the system should return or display).
+4. **Cover data types:** Where applicable, include null, empty string, zero, negative, very large, and special character inputs.
+5. **Business-critical values first:** Prioritize values that correspond to real business thresholds (e.g., expiry boundaries, payment minimums, SLA limits).
+6. **Keep sets manageable:** Aim for 6–12 rows per parameterized group. If more are needed, split into focused sub-groups.
 
 ---
 
 ## Module 1: Authentication & Sign-In
 
-**FR Reference:** FR-031
-**Spec File:** `tests/admin-treatment-flow/admin-sign-in.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminAuthTest.php`
+**FR Reference:** FR-009
+**Spec File:** `tests/treatment-flow/provider-sign-in.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/ProviderAuthTest.php`
 
 ### 1.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-AUTH-001 | Admin can log in | Seeded admin | `admin@example.com` / `password` | Login successful, redirect to `/`, "Admin User" in header | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-002 | Admin sees admin-specific sidebar | Logged in as admin | Check navigation | Sidebar shows: Overview, Patients, Settings, Billing (not provider items) | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-003 | Provisioned admin team member can access dashboard | Admin account provisioned with valid role | Sign in with valid admin credentials | Dashboard loads and permitted modules are available for the assigned role | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AUTH-004 | Removed admin team member cannot access dashboard | Admin access revoked in admin access control | Attempt login with previous credentials | Access denied; protected admin routes remain inaccessible | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AUTH-005 | Session persists on refresh | Logged in | Refresh page | Still logged in | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-006 | Logout clears session | Logged in | Click user menu → Logout | Redirected to `/auth`, session cleared | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-001 | Provider owner can log in | Seeded provider1 | `provider1@hairline.app` / `password123` | Login successful toast, redirect to `/`, provider name in header | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-002 | Clinician can log in | Seeded clinician1 | `clinician1@hairline.app` / `password123` | Login successful, "Dr. Ahmed Hassan" in header | | | | |
+| P-AUTH-003 | Billing Staff can log in | Seeded billing staff account | Billing Staff credentials | Login successful; financial views available; owner-only settings hidden | | | | |
+| P-AUTH-004 | Invited team member can open valid invitation link | Invitation email sent | Click invitation link from email | Account setup page opens with invitee identity pre-filled | | | | |
+| P-AUTH-005 | Invited team member can complete account setup | Valid invitation link open | Set password, accept terms, submit | Account created with assigned role; user can immediately log in | | | | |
+| P-AUTH-006 | Session persists on page refresh | Logged in | Refresh browser | Still logged in, dashboard visible | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-007 | Logout clears session | Logged in | Click user menu → Logout | Redirected to `/auth`, localStorage cleared | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-008 | First login shows only role-appropriate access | First login after invitation acceptance | Log in as newly created Manager | Operational features visible; billing and owner-only settings not accessible | | | | |
 
-### 1.2 Role Isolation (Critical)
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-AUTH-007 | Admin cannot access provider routes (UI) | Logged in as admin | Navigate to provider-only URL (e.g., `/inquiries`) | Route not accessible or redirected | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-008 | Provider cannot access admin routes (UI) | Logged in as provider | Navigate to admin-only URL (e.g., `/patients`) | Route not accessible or redirected | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-009 | Admin API rejects provider-only endpoints | Admin token | `GET /api/provider/inquiries` | 403 Forbidden | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
-| A-AUTH-010 | Provider API rejects admin-only endpoints | Provider token | `GET /api/admin/patients` | 403 Forbidden | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
-| A-AUTH-011 | No token rejects all protected endpoints | No auth header | `GET /api/admin/dashboard` | 401 Unauthorized | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
-| A-AUTH-012 | Expired token rejected | Expired JWT | `GET /api/admin/dashboard` | 401 Unauthorized; re-authentication required before access is restored | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
-
-### 1.3 Edge Cases
+### 1.2 Alternative Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-AUTH-013 | Login with wrong password | Seeded admin | Correct email, wrong password | Error message, stay on login page | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-014 | Login with non-existent email | None | `fake@example.com` / `password` | Error message | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-015 | Login with empty fields | On login page | Both fields empty | Validation errors | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-016 | SQL injection in login | On login page | `' OR 1=1 --` as email | Rejected, no bypass | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-AUTH-017 | XSS in login fields | On login page | `<script>alert(1)</script>` as email | Rejected, no script execution | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-009 | Forgot password sends reset email | Seeded provider | `provider1@hairline.app` | Reset email arrives in Mailpit | | | | |
+| P-AUTH-010 | Password reset with valid token works | Reset email received | New valid password + reset token | Password changed, can login with new password | | | | |
+| P-AUTH-011 | Existing Hairline user sees login-only invitation acceptance flow | Invitation sent to email with existing Hairline account | Click invitation link | Invitation flow prompts login instead of creating a new account | | | | Verify against implementation — FR-009 A3 covers cross-provider blocking; this tests the patient-account scenario which is implied but not explicitly defined in FR-009 |
+| P-AUTH-012 | Expired invitation link cannot be accepted | Invitation expired after 7 days | Click expired invitation link | Access blocked; user instructed to request a fresh invitation | | | | |
 
-### 1.4 Parameterized: Role-Based API Access [PARAM]
+### 1.3 Edge Cases & Negative Tests
 
-| TC ID | Endpoint | Admin Token | Provider Token | No Token | Status | Actual Result | Severity | Notes |
-|-------|----------|-------------|---------------|----------|--------|---------------|----------|-------|
-| A-AUTH-P01 | `GET /api/admin/dashboard` | 200 | 403 | 401 | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
-| A-AUTH-P02 | `GET /api/admin/patients` | 200 | 403 | 401 | FAIL | Provider token unexpectedly returned 200 on /api/patient-management/get-all-patients instead of denial. | High | Role-isolation regression: provider can access admin patient list endpoint. |
-| A-AUTH-P03 | `GET /api/admin/providers` | 200 | 403 | 401 | FAIL | Provider token unexpectedly returned 200 on /api/admin/provider-management/providers instead of denial. | High | Role-isolation regression: provider can access admin provider-management endpoint. |
-| A-AUTH-P04 | `GET /api/admin/payments` | 200 | 403 | 401 | FAIL | Admin request to /api/payment/get-all-payments returned 500 (SQLSTATE[42S22]: unknown column providers.first_name). | Critical | Backend query/schema mismatch in payments endpoint; admin payments view/API is unstable. |
-| A-AUTH-P05 | `GET /api/admin/aftercare` | 200 | 403 | 401 | FAIL | Provider token unexpectedly returned 200 on /api/after-care/get-aftercare-overview instead of denial. | High | Role-isolation regression: provider can access admin aftercare overview endpoint. |
-| A-AUTH-P07 | `PUT /api/admin/settings/deposit` | 200 | 403 | 401 | FAIL | Provider token returned 422 validation error on /api/settings/update-deposit-rate instead of authorization denial. | High | Authorization check is bypassed/late; provider reaches admin config validation path. |
+| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
+| P-AUTH-013 | Login with wrong password | Seeded provider | Correct email, wrong password | Error message, stay on login page | PASS | Rejected login attempt; user remained on provider login page without successful session. |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-014 | Login with non-existent email | None | `nonexistent@test.com` / any password | Error message, stay on login page | | | | |
+| P-AUTH-015 | Login with empty email field | On login page | Empty email, valid password | Validation error on email field | | | | |
+| P-AUTH-016 | Login with empty password field | On login page | Valid email, empty password | Validation error on password field | | | | |
+| P-AUTH-017 | Login with both fields empty | On login page | Both empty | Validation errors on both fields | PASS | Validation prevented submission and kept user on provider login page. |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-018 | Provider cannot access admin routes | Logged in as provider | Navigate to admin-only URL | Redirected or access denied | PASS | Authenticated provider token was denied from admin settings API with forbidden/unauthorized status. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
+| P-AUTH-019 | Unauthenticated user redirected to login | Not logged in | Navigate to `/` (dashboard) | Redirected to `/auth` | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-AUTH-020 | Expired token requires re-authentication | Logged in with expired token | Make API request | Protected data not returned; user must authenticate again before continuing | PASS | Invalid/expired bearer token request returned 401 Unauthorized. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
+| P-AUTH-021 | API rejects request with no auth token | Not logged in | `GET /api/provider/inquiries` without token | 401 Unauthorized | PASS | Unauthenticated request returned 401 as expected. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
+
+### 1.4 Parameterized: Password Validation [PARAM]
+
+| TC ID | Test Case | Input Password | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|-----------|---------------|-----------------|--------|---------------|----------|-------|
+| P-AUTH-P01 | Valid password (all rules met) | `MyP@ssw0rd123!` | Accepted | | | | |
+| P-AUTH-P02 | Exactly 12 characters, all rules met | `Ab1!xxxxxxxx` (12 chars) | Accepted | | | | |
+| P-AUTH-P03 | 11 characters (too short) | `Ab1!xxxxxxx` (11 chars) | Rejected — minimum 12 characters | | | | |
+| P-AUTH-P04 | No uppercase letter | `myp@ssw0rd123!` | Rejected — requires uppercase | | | | |
+| P-AUTH-P05 | No lowercase letter | `MYP@SSW0RD123!` | Rejected — requires lowercase | | | | |
+| P-AUTH-P06 | No digit | `MyP@ssworddd!` | Rejected — requires digit | | | | |
+| P-AUTH-P07 | No special character | `MyPassw0rd1234` | Rejected — requires special char from `!@#$%^&(),.?":{}|<>` | | | | |
+| P-AUTH-P09 | SQL injection attempt in password | `' OR 1=1 --` | Rejected — does not bypass auth | | | | |
+| P-AUTH-P10 | XSS attempt in email field | `<script>alert(1)</script>@test.com` | Rejected — validation error, no script execution | | | | |
 
 ---
 
-## Module 2: Dashboard Overview
+## Module 2: Onboarding & Profile Setup
 
-**FR Reference:** FR-016, FR-020
-**Spec File:** `tests/admin-treatment-flow/admin-dashboard-overview.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminDashboardTest.php`
+**FR Reference:** FR-009, FR-032
+**Spec File:** `tests/treatment-flow/provider-onboarding.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/ProviderProfileTest.php`
 
 ### 2.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-DSH-001 | Dashboard page loads | Logged in, data seeded | Navigate to dashboard | Dashboard loads within 3 seconds | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-002 | Total providers metric displayed | Providers seeded | Check widget | Provider count shown, matches seeded count | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-003 | Total patients metric displayed | Patients seeded | Check widget | Patient count shown, matches seeded count | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-004 | Active inquiries count | Inquiries seeded | Check widget | Count matches active (non-expired) inquiries | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-005 | Active treatments count | Treatments seeded | Check widget | Count matches treatments in active states | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-006 | Revenue summary displayed | Financial data seeded | Check widget | Revenue figure shown, non-zero | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-007 | API returns correct metrics | Data seeded | `GET /api/admin/dashboard` | JSON contains all metric fields with correct counts | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
+| P-ONB-001 | Settings page loads | Logged in as provider owner | Navigate to Settings | Settings page with sections loads | | | | |
+| P-ONB-002 | Update clinic name and description | On Settings page | New clinic name, description | Saved, persists on refresh | | | | |
+| P-ONB-003 | Update contact information | On Settings page | Phone, address, website | Saved successfully | | | | |
+| P-ONB-004 | Upload clinic logo | On Settings page | Valid image (PNG/JPG, < 5MB) | Image uploaded, preview displayed | | | | |
+| P-ONB-005 | Upload gallery images | On Settings page | Multiple images | All images uploaded with previews | | | | |
+| P-ONB-008 | Add banking/payment details (FR-032) | On Settings page | Bank name, account, routing | Banking details saved | | | | |
+| P-ONB-009 | Configure notification preferences | On Settings page | Toggle email/push preferences | Preferences saved | | | | |
+| P-ONB-010 | Configure language assignments | On Settings page | Select English + Turkish | Languages saved | | | | |
 
-### 2.2 Notifications
+### 2.2 Team Management
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-DSH-008 | Notification bell icon visible | Logged in | Check header | Bell icon displayed with count badge | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-009 | Notification dropdown opens | Notifications exist | Click bell | Dropdown shows notification list | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-010 | Notifications support infinite scroll | 20+ notifications | Scroll dropdown | More notifications load dynamically (FR-020) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-011 | Click notification navigates to source | Notification for a patient | Click notification | Navigates to relevant patient/treatment page | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-012 | Real-time notification appears | WebSocket connected | Trigger event | New notification appears without page refresh | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-ONB-011 | Team page shows current members | Logged in as owner | Navigate to Team | Team list with owner + seeded members | | | | |
+| P-ONB-012 | Invite new team member (Clinician) | On Team page | Valid email, role=Clinician | Invitation email sent (check Mailpit), pending status shown | | | | |
+| P-ONB-013 | Invite new team member (Manager) | On Team page | Valid email, role=Manager | Invitation sent, pending status | | | | |
+| P-ONB-014 | Invite new team member (Billing Staff) | On Team page | Valid email, role=Billing Staff | Invitation sent, pending status | | | | |
+| P-ONB-015 | Revoke team member access | Team member exists | Click revoke/remove | Member removed from team, access revoked | | | | |
+| P-ONB-016 | Owner role cannot be revoked by self | Logged in as owner | Attempt to remove self | Action blocked or not available | | | | |
 
 ### 2.3 Edge Cases
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-DSH-013 | Dashboard with no data | Empty database (BasicSeeder only) | Load dashboard | Widgets show 0 or appropriate empty state, no errors | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-014 | Dashboard with very large dataset | 1000+ records seeded | Load dashboard | Loads within reasonable time, no timeout | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DSH-015 | No notifications state | No notifications | Click bell | Empty state message in dropdown | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-ONB-017 | Upload invalid file type as logo | On Settings page | `.exe` or `.pdf` file | Rejection with clear error message | | | | |
+| P-ONB-018 | Upload oversized image | On Settings page | Image > max size limit | Rejection with size limit error | | | | |
+| P-ONB-019 | Save settings with empty required fields | On Settings page | Clear clinic name, submit | Validation error on required field | | | | |
+| P-ONB-020 | Very long clinic name (255+ chars) | On Settings page | 300-char clinic name | Truncated or rejected with max length error | | | | |
+| P-ONB-021 | Special characters in clinic description | On Settings page | HTML tags, unicode, emojis | Saved and displayed correctly (sanitized if HTML) | | | | |
+| P-ONB-022 | Invite existing Hairline user uses login-only acceptance flow | On Team page | Email of existing global Hairline user | Invitation sent; invitee is routed to login-only acceptance flow when opening the link | | | | |
+| P-ONB-023 | Invite member with invalid email format | On Team page | `notanemail` | Validation error | | | | |
+| P-ONB-024 | Clinician cannot access team management | Logged in as clinician | Navigate to Team page | Access restricted or limited view | | | | |
+| P-ONB-025 | Billing Staff member permissions enforced | Logged in as Billing Staff | Attempt to access owner-only settings | Access denied | | | | |
+
+### 2.4 Team Invitation Lifecycle
+
+| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
+| P-ONB-026 | Invitation expires after 7 days | Invitation sent 8 days ago | Check invitation status | Invitation expired, cannot be accepted | | | | |
+| P-ONB-027 | Reinvite after expired invitation | Previous invitation expired | Send new invitation to same email | New invitation sent, fresh 7-day window | | | | |
+| P-ONB-028 | Team member cannot belong to multiple providers | User already member of Provider A | Invite same user to Provider B | Blocked — cross-provider membership not allowed (FR-009 Alt Flow A3) | | | | |
 
 ---
 
-## Module 3: Provider Management
+## Module 3: Inquiry Review
 
-**FR Reference:** FR-015
-**Spec File:** `tests/admin-treatment-flow/admin-provider-management.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminProviderManagementTest.php`
+**FR Reference:** FR-003
+**Spec File:** `tests/treatment-flow/provider-inquiry-review.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/InquiryReviewTest.php`
 
 ### 3.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PRV-001 | Provider list loads | Providers seeded | Navigate to providers | Provider list/table displayed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-002 | Search providers by name | Multiple providers | Search "Istanbul" | Only matching providers shown | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-003 | View provider detail | Provider exists | Click provider row | Detail page: clinic info, team, credentials, performance | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-004 | Provider detail page shows key data | Provider data seeded | View provider detail | Clinic info, team members, credentials, commission structure, active/completed treatment count visible | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-005 | Provider status controls available | On provider detail | Check actions | Active/Suspended/Deactivated status options available | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-006 | API returns provider list | Providers seeded | `GET /api/admin/providers` | 200 + paginated list with provider data | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
-| A-PRV-007 | API returns provider detail | Provider exists | `GET /api/admin/providers/{id}` | 200 + full provider data | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-INQ-001 | Inquiry list loads | Logged in, inquiries seeded | Navigate to Inquiries | List of inquiry cards displayed | PASS | Endpoint returned 200 success with inquiry list data for authenticated provider. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
+| P-INQ-002 | Inquiry card shows HPID | Inquiries exist | View list | Each card has HPID-format ID (HPID + YY + MM + sequence) | | | | |
+| P-INQ-003 | Inquiry card shows treatment type | Inquiries exist | View list | Treatment type visible on card | | | | |
+| P-INQ-004 | Inquiry card shows date range | Inquiries exist | View list | Patient's requested date range visible | | | | |
+| P-INQ-005 | Click inquiry opens detail page | Inquiry exists | Click on inquiry card | Detail page loads with full information | | | | |
+| P-INQ-006 | Patient identity is masked | View inquiry detail | Check patient section | No full name, no direct contact info — anonymous/coded identifier only | | | | |
+| P-INQ-007 | Medical history displayed | View inquiry detail | Check medical section | Medical history questionnaire responses visible | | | | |
+| P-INQ-008 | Medical alerts color-coded | Inquiry with medical alerts | Check alert indicators | Red (critical), yellow (standard), green (no issues) displayed correctly | | | | |
+| P-INQ-009 | Head scan photos displayed | Inquiry with scans | Check scan section | Photos load, viewable (zoom/expand) | | | | |
+| P-INQ-010 | Inquiry shows expiry information | Active inquiry | Check expiry display | 72-hour expiry timer/date from distribution time | | | | |
+| P-INQ-011 | Inquiry status displayed correctly | Inquiries at different stages | View list | Status: New, Viewed, Quote Submitted, Expired — each correct | | | | |
 
-### 3.2 Edge Cases
+### 3.2 Alternative Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PRV-008 | Search with no results | Providers seeded | Search "ZZZZNONEXISTENT" | Empty results, appropriate message | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-009 | Search with special characters | Providers seeded | Search `<script>` | No results, no script execution, no error | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-010 | Search with empty query | Providers seeded | Clear search, submit | All providers shown (unfiltered) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-011 | Pagination works | 20+ providers | Navigate to page 2 | Next page loads with correct items | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-012 | Provider with no team members | Provider exists alone | View detail | Team section shows empty state or just owner | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-013 | Provider with no performance data | New provider | View detail | Metrics show 0 or "No data yet" | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-INQ-012 | Filter inquiries by status | Multiple inquiries | Apply status filter | Only matching inquiries shown | | | | |
+| P-INQ-013 | Sort inquiries | Multiple inquiries | Sort by date/status | Order changes correctly | | | | |
+| P-INQ-014 | Paginate inquiry list | 20+ inquiries | Navigate pages | Pagination works, correct items per page | | | | |
+| P-INQ-015 | Empty inquiry list | Provider with no inquiries | Navigate to Inquiries | Empty state message displayed | PASS | Endpoint returned success with empty `data.data` array for provider without assignments. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
 
-### 3.3 Parameterized: Search Queries [PARAM]
+### 3.3 Edge Cases & Business Rules
 
-| TC ID | Search Query | Expected Behavior | Status | Actual Result | Severity | Notes |
-|-------|-------------|-------------------|--------|---------------|----------|-------|
-| A-PRV-P01 | "Hair Clinic Istanbul" (exact name) | Exact match returned | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-P02 | "hair" (partial, case-insensitive) | All providers with "hair" in name | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-P03 | "Istanbul" (city match) | Providers in Istanbul | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-P04 | "" (empty string) | All providers (no filter) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-P05 | "ZZZZZ" (no match) | Empty results | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PRV-P06 | Special chars: `'; DROP TABLE` | No results, no error, no SQL execution | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
+| P-INQ-016 | Cannot quote on expired inquiry | Inquiry past 72h | Attempt to create quote | Quote action disabled/blocked, clear message | | | | |
+| P-INQ-017 | Inquiry with no head scan photos | Inquiry without scans | View detail | Scan section shows appropriate empty state, not error | | | | |
+| P-INQ-018 | Inquiry with all red medical alerts | High-risk patient | View detail | All alerts display as red, no missing alerts | | | | |
+| P-INQ-019 | Inquiry with no medical alerts | Healthy patient | View detail | Green status or "no alerts" displayed | | | | |
+| P-INQ-020 | Inquiry distributed to max 10 providers | Full distribution | Check via API | Provider count ≤ 10 for the inquiry | | | | |
+| P-INQ-021 | Inquiry distribution within 5-minute SLA | New inquiry created | Check distribution timestamp | Distribution time − creation time ≤ 5 minutes | | | | |
+| P-INQ-022 | Provider only sees inquiries assigned to them | Multiple providers | Login as provider1, check list | Only inquiries distributed to this provider shown | PASS | Response contained assigned inquiry ID and excluded inquiry assigned to other provider. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
+
+### 3.4 Parameterized: Inquiry Expiry Boundaries [PARAM]
+
+| TC ID | Test Case | Inquiry Age | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|-----------|-------------|-----------------|--------|---------------|----------|-------|
+| P-INQ-P01 | Inquiry at 1 hour (well within window) | 1h | Active, quotable | | | | |
+| P-INQ-P02 | Inquiry at 24 hours | 24h | Active, quotable | | | | |
+| P-INQ-P03 | Inquiry at 48 hours | 48h | Active, quotable | | | | |
+| P-INQ-P04 | Inquiry at 71 hours (near expiry) | 71h | Active, quotable, expiry warning visible | | | | |
+| P-INQ-P05 | Inquiry at exactly 72 hours | 72h | Expired, not quotable | | | | |
+| P-INQ-P06 | Inquiry at 73 hours (past expiry) | 73h | Expired, not quotable | | | | |
 
 ---
 
-## Module 4: Patient Management
+## Module 4: Quote Management
 
-**FR Reference:** FR-016
-**Spec File:** `tests/admin-treatment-flow/admin-patient-management.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminPatientManagementTest.php`
+**FR Reference:** FR-004
+**Spec File:** `tests/treatment-flow/provider-quote-creation.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/QuoteManagementTest.php`
 
 ### 4.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAT-001 | Patient table loads | Patients seeded | Navigate to Patients | Patient table with data displayed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-002 | Search patients by name | Multiple patients | Enter patient name | Results filter correctly | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-003 | Search patients by ID | Patient exists | Enter patient ID | Exact match returned | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-004 | Sort by name ascending | Multiple patients | Click name column header | Alphabetical A-Z order | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-005 | Sort by name descending | Sorted ascending | Click name column again | Z-A order | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-006 | Sort by date | Multiple patients | Click date column | Ordered by date | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-007 | Sort by status | Multiple patients | Click status column | Grouped by status | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-008 | Pagination works | 20+ patients | Navigate pages | Correct items per page, page indicators | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-009 | View patient detail | Patient exists | Click patient row | Detail page: medical history, inquiries, treatments, billing | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-010 | View patient treatment history | Patient with treatments | Check treatment section | Treatment timeline visible with all stages | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-011 | View patient billing records | Patient with payments | Check billing section | Payment history accessible | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-012 | API returns patient list | Patients seeded | `GET /api/admin/patients` | 200 + paginated patient list | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-013 | API returns patient detail | Patient exists | `GET /api/admin/patients/{id}` | 200 + full patient data | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-QOT-001 | Open quote creation from inquiry | Active inquiry exists | Click "Create Quote" | Quote form loads with treatment type selector | | | | |
+| P-QOT-002 | Select treatment type FUE | On quote form | Select FUE | FUE selected and displayed | | | | |
+| P-QOT-003 | Select treatment type FUT | On quote form | Select FUT | FUT selected and displayed | | | | |
+| P-QOT-004 | Select treatment type DHI | On quote form | Select DHI | DHI selected and displayed | | | | |
+| P-QOT-005 | Enter graft count | On quote form | Enter 3000 | Value accepted and displayed | | | | |
+| P-QOT-006 | Select Treatment Dates and enter price per date | On quote form | Select 2 dates from patient range; enter $3000 for Day 1, $2000 for Day 2 | Dates saved; price recorded per date; treatment subtotal = $5000 (FR-004: Price per Date is required per selected date) | | | | |
+| P-QOT-007 | Add hotel package | On quote form | Select hotel package, set price $500 | Package added, visible in summary | | | | |
+| P-QOT-008 | Add transport package | On quote form | Select transport, set price $200 | Package added, visible in summary | | | | |
+| P-QOT-009 | Add PRP package | On quote form | Select PRP, set price $800 | Package added, visible in summary | | | | |
+| P-QOT-010 | Total auto-calculates | Date prices ($3000 + $2000) + packages added | Check total | Total = treatment subtotal $5000 + $500 + $200 + $800 = $6500 | | | | |
+| P-QOT-011 | Set appointment slot | On quote form | Select date + time | Appointment slot saved | | | | |
+| P-QOT-012 | Select clinician for quote | On quote form | Select active clinician from team | Clinician assigned to quote (FR-004: required field, must be active/eligible) | | | | |
+| P-QOT-013 | Submit completed quote | All required fields filled | Click Submit | Status = "Submitted", confirmation toast | | | | |
+| P-QOT-014 | Submitted quote visible in quotes list | Quote submitted | Navigate to Quotes | Quote listed with "Submitted" status | | | | |
+| P-QOT-015 | Save quote as draft | Partial quote form | Click Save Draft | Draft saved, editable later | | | | |
+| P-QOT-016 | Edit and resume draft quote | Draft exists | Open draft, make changes | Changes saved | | | | |
 
-### 4.2 Edge Cases
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAT-014 | Empty patient table | No patients seeded | Navigate to Patients | Empty state message | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-015 | Search with no results | Patients seeded | Search "NONEXISTENT" | Empty results message | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-016 | Patient with no treatment history | New patient | View detail | Treatment section empty state | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-017 | Patient with no billing records | No payments | View detail | Billing section empty state | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-018 | Sorting persists after navigating back | Sorted by name desc | Navigate to detail, go back | Sort order preserved | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-019 | Combined search + sort + filter | Patients seeded | Search + sort + status filter | All three applied correctly together | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-020 | Patient data shows masked status correctly | Pre-payment patient | View detail | Anonymization level reflected (full/partial/none) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 4.3 Parameterized: Sort Columns [PARAM]
-
-| TC ID | Column | Direction | Expected | Status | Actual Result | Severity | Notes |
-|-------|--------|-----------|----------|--------|---------------|----------|-------|
-| A-PAT-P01 | Name | Ascending | A → Z | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P02 | Name | Descending | Z → A | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P03 | Date Created | Ascending | Oldest first | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P04 | Date Created | Descending | Newest first | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P05 | Status | Ascending | Alphabetical or enum order | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P06 | Status | Descending | Reverse order | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 4.4 Parameterized: Pagination Boundaries [PARAM]
-
-| TC ID | Total Records | Page Size | Page | Expected Items | Status | Actual Result | Severity | Notes |
-|-------|-------------|-----------|------|---------------|--------|---------------|----------|-------|
-| A-PAT-P07 | 0 | 25 | 1 | 0 (empty state) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P08 | 1 | 25 | 1 | 1 item, no "next" | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P09 | 25 | 25 | 1 | 25 items, no "next" | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P10 | 26 | 25 | 1 | 25 items, "next" available | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P11 | 26 | 25 | 2 | 1 item, no "next" | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P12 | 75 | 50 | 2 | 25 items, no "next" | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-P13 | 150 | 100 | 2 | 50 items, no "next" | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 4.5 Admin Medical Data Access Justification (FR-016 Alt Flow A2)
+### 4.2 Alternative Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAT-021 | Admin must enter justification before viewing medical data | Patient detail view open | Click "Medical Data" tab | System prompts for justification reason before displaying data; access logged with admin ID, timestamp, and justification | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-022 | Medical data access denied without justification | Patient detail view open | Click "Medical Data" tab, leave justification blank, attempt to proceed | System blocks access until justification is provided | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-QOT-017 | Remove a package from quote | Quote with packages | Remove hotel package | Package removed, total recalculates | | | | |
+| P-QOT-018 | Change treatment type after initial selection | FUE selected | Switch to DHI | Treatment type updated | | | | |
+| P-QOT-019 | Set single appointment slot per quote | On quote form | Select appointment date/time | One appointment slot saved per quote; must map to one of the selected Treatment Dates (FR-004) | | | | |
+| P-QOT-020 | Enter Treatment Plan (per-day) entries | On quote form, Treatment Dates selected | Enter day description for each date (e.g., Day 1: "Consultation & Scans", Day 2: "Hair Transplant Procedure") | Per-day plan entries saved; sequential day numbers auto-assigned; no date gaps allowed (FR-004: Treatment Plan is required) | | | | |
 
-### 4.6 Admin Write Actions (FR-016)
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAT-023 | Admin resets patient password | Patient account exists | Click "Reset Password", enter justification, confirm | Password reset email sent; action logged in audit trail | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-024 | Admin unlocks patient account | Patient account locked after failed logins | Click "Unlock Account", enter justification | Account unlocked; patient can log in again; action logged | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-025 | Admin edits patient profile information | Patient detail view open | Update patient profile fields, enter justification | Profile updated; changes logged in audit trail | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-026 | Admin suspends patient account (30-day duration) | Patient account active, fraud evidence | Click "Suspend Account", select 30 days, enter justification | Account suspended; auth tokens revoked; active bookings cancelled; suspension logged | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-027 | Admin suspends patient account (90-day duration) | Patient account active | Click "Suspend Account", select 90 days, enter justification | Account suspended for 90 days; same cascade effects | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-028 | Admin suspends patient account (Permanent) | Patient account active | Click "Suspend Account", select Permanent, enter justification | Account permanently suspended; all cascade effects; appeal info sent to patient | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 4.7 GDPR Data Deletion Workflow (FR-016 Alt Flow B5)
+### 4.3 Edge Cases & Business Rules
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAT-029 | Admin processes GDPR data deletion request (no obligations) | Patient with no active bookings or outstanding balances | Initiate data deletion workflow | PII removed; anonymized medical records retained (7-year compliance); transaction history archived; deletion certificate generated | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-030 | Admin blocked from GDPR deletion with active obligations | Patient with active booking or outstanding balance | Attempt data deletion | System blocks deletion; explains legal requirement to retain data until obligations resolved | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-QOT-022 | Submit without treatment type | Quote form | No treatment type selected | Validation error — treatment type required | | | | |
+| P-QOT-023 | Submit without graft count | Quote form | No graft count entered | Validation error — graft count required | | | | |
+| P-QOT-024 | Submit without price per date | Quote form | Treatment Dates selected but no price entered for any date | Validation error — price per date is required (FR-004) | | | | |
+| P-QOT-025 | Submit without appointment slot | Quote form | No appointment selected | Validation error — appointment slot required before quote submission | | | | |
+| P-QOT-026 | Enter zero price for a date | Quote form | Price per date = $0 | Rejected — price must be positive | | | | |
+| P-QOT-027 | Enter negative price for a date | Quote form | Price per date = -$100 | Rejected — price must be positive | | | | |
+| P-QOT-028 | Enter zero graft count | Quote form | Graft count = 0 | Rejected — must be positive | | | | |
+| P-QOT-030 | Quote with all optional packages | Quote form | Add every available package | All packages saved, total correct | | | | |
+| P-QOT-031 | Quote with no optional packages | Quote form | Base price only, no packages | Quote valid, total = base price | | | | |
+| P-QOT-032 | Cannot submit same quote twice | Quote already submitted | Click Submit again | Prevented — already submitted | | | | |
+| P-QOT-033 | Multiple providers can hold quotes for the same inquiry before acceptance | Inquiry distributed to multiple providers | Provider B submits quote while Provider A already has a submitted quote | Both quotes remain valid until one is accepted; accepting one cancels the others | | | | |
+| P-QOT-034 | Edit a draft quote | Draft exists | Modify graft count and price | Changes saved to draft | | | | |
+| P-QOT-035 | Cannot edit a submitted quote | Submitted quote | Attempt to edit fields | Editing blocked — quote already submitted | | | | |
+| P-QOT-036 | Draft quote auto-archived after 7 days | Draft created 8 days ago | Check draft status | Draft auto-archived, not editable | | | | |
+| P-QOT-037 | Quote locked when competing quote accepted | Another provider's quote accepted | Check own quote status | Own quote status = "Cancelled (Other Accepted)", draft locked with banner | | | | |
+| P-QOT-038 | Quote cancelled when inquiry cancelled | Inquiry cancelled by patient | Check quote status | Quote status = "Cancelled (Inquiry Cancelled)" | | | | |
 
-### 4.8 Real-Time Patient List (FR-016)
+### 4.4 Parameterized: Price Calculations [PARAM]
 
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAT-031 | Patient list updates in real-time via WebSocket | WebSocket connected, on patient list page | New patient registers in another session | New patient appears in admin patient list without page refresh | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+> **Note:** "Treatment Subtotal" = sum of all Price per Date entries (FR-004). For example, a 2-day quote with $3000/day 1 + $2000/day 2 = $5000 treatment subtotal.
 
-### 4.9 Results Per Page Options (FR-016)
+| TC ID | Treatment Subtotal | Hotel | Transport | PRP | Other | Expected Total | Status | Actual Result | Severity | Notes |
+|-------|-------------------|-------|-----------|-----|-------|---------------|--------|---------------|----------|-------|
+| P-QOT-P01 | $5000 | $500 | $200 | $800 | — | $6500 | | | | |
+| P-QOT-P02 | $3000 | — | — | — | — | $3000 | | | | |
+| P-QOT-P03 | $7500 | $1200 | $300 | — | — | $9000 | | | | |
+| P-QOT-P04 | $10000 | $800 | $150 | $1000 | $500 | $12450 | | | | |
+| P-QOT-P05 | $2500 | $0 | $0 | $0 | — | $2500 | | | | |
+| P-QOT-P06 | $4999.99 | $500.01 | — | — | — | $5500.00 | | | | |
 
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAT-032 | Results per page defaults to 25 | 50+ patients seeded | Navigate to patient list | Default page shows 25 results | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-033 | Results per page can be changed to 50 | 75+ patients seeded | Select 50 from results per page dropdown | Page displays 50 results | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAT-034 | Results per page can be changed to 100 | 150+ patients seeded | Select 100 from results per page dropdown | Page displays 100 results | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+### 4.5 Parameterized: Quote Submission Window [PARAM]
+
+| TC ID | Hours Since Inquiry Received | Action | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|------------------------------|--------|-----------------|--------|---------------|----------|-------|
+| P-QOT-P07 | 1h | Submit quote | Accepted | | | | |
+| P-QOT-P08 | 24h | Submit quote | Accepted | | | | |
+| P-QOT-P09 | 48h | Submit quote | Accepted | | | | |
+| P-QOT-P10 | 71h | Submit quote | Accepted; submission succeeds and near-deadline urgency is visible if implemented | | | | |
+| P-QOT-P11 | 72h | Submit quote | Rejected — submission window closed | | | | |
+| P-QOT-P12 | 73h | Submit quote | Rejected | | | | |
+
+### 4.6 Parameterized: Quote Expiry After Submission [PARAM]
+
+| TC ID | Hours Since Quote Submitted | Patient Action | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|----------------------------|----------------|-----------------|--------|---------------|----------|-------|
+| P-QOT-P13 | 1h | View quote | Active, acceptable | | | | |
+| P-QOT-P14 | 24h | View quote | Active, acceptable | | | | |
+| P-QOT-P15 | 47h | View quote | Active, expiry warning | | | | |
+| P-QOT-P16 | 48h | View quote | Expired, not acceptable | | | | |
+| P-QOT-P17 | 49h | View quote | Expired | | | | |
 
 ---
 
-## Module 5: Inquiry Monitoring
+## Module 5: Appointment Management
 
-**FR Reference:** FR-003, FR-016
-**Spec File:** `tests/admin-treatment-flow/admin-inquiry-monitoring.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminInquiryMonitoringTest.php`
+**FR Reference:** FR-006
+**Spec File:** `tests/treatment-flow/provider-appointment.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/AppointmentTest.php`
 
 ### 5.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-INQ-001 | All inquiries displayed (platform-wide) | Inquiries seeded across providers | Navigate to inquiry monitoring | Inquiries from ALL providers listed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-002 | Inquiry count matches database | Seeded data | Compare UI count to API/DB | Counts match | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-003 | View inquiry detail | Inquiry exists | Click inquiry | Detail page: patient, distribution, providers, status | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-004 | View inquiry distribution details | Inquiry distributed | Check distribution section | Shows which providers received it, when | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-005 | Distribution SLA tracking visible | Inquiry distributed | Check timestamps | Distribution time − creation time visible and measurable | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-006 | Flag a conversation | Inquiry with conversation | Click flag action | Flag saved, visible in flagged view (FR-016) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-007 | API returns all inquiries | Inquiries seeded | `GET /api/admin/inquiries` | 200 + all platform inquiries | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-APT-001 | Appointments page loads | Logged in, booking data seeded | Navigate to Appointments | Appointments list displayed | | | | |
+| P-APT-002 | Confirmed appointment shows unmasked patient | Quote accepted + paid | View appointment detail | Patient full name and contact info visible | | | | |
+| P-APT-003 | Appointment shows correct date/time | Booking exists | View appointment | Date and time match accepted quote's slot | | | | |
+| P-APT-004 | Appointment shows treatment type | Booking exists | View appointment | Treatment type from quote displayed | | | | |
+| P-APT-005 | Payment status shown | Booking exists | View appointment | Payment status indicator: deposit/partial/full | | | | |
+| P-APT-007 | Notification received for new booking | New booking confirmed | Check notifications | Booking confirmation notification in dropdown | | | | |
 
-### 5.2 Filtering
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-INQ-008 | Filter by New status | Mixed statuses | Apply "New" filter | Only new inquiries shown | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-009 | Filter by Distributed status | Mixed statuses | Apply "Distributed" filter | Only distributed inquiries | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-010 | Filter by Quoted status | Mixed statuses | Apply "Quoted" filter | Only inquiries with submitted quotes | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-011 | Filter by Expired status | Mixed statuses | Apply "Expired" filter | Only expired inquiries | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-012 | Clear all filters | Filter applied | Clear filters | All inquiries shown again | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 5.3 Edge Cases
+### 5.2 Edge Cases
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-INQ-013 | Empty inquiry list | No inquiries | Navigate to monitoring | Empty state message | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-014 | Expired inquiry handling | Expired inquiry exists | View detail | Clear expired status, no actions available | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-015 | Inquiry with max 10 providers | Fully distributed | View distribution | Exactly 10 providers listed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-016 | Inquiry with 1 provider | Single distribution | View distribution | 1 provider listed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-017 | Unflag a previously flagged conversation | Flagged conversation | Click unflag | Flag removed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-018 | Distribution SLA violation detected | Distribution > 5 min | Check SLA indicator | SLA breach highlighted or flagged | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 5.4 Admin Override Capabilities (FR-003)
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-INQ-019 | Admin edits inquiry details with audit | Inquiry exists | Edit inquiry fields, enter reason | Changes saved; audit trail records who, when, what changed (old → new), reason; re-notifications triggered if impactful | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-020 | Admin reassigns inquiry to different providers | Inquiry distributed | Select new provider(s), validate eligibility | Reassignment applied; audit logged; optional note sent to new provider(s) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-INQ-021 | Admin soft-deletes inquiry with reason | Inquiry exists | Click soft delete, enter reason | Inquiry archived with "Archived" badge; data retained for audit; further edits prevented; read-only view available | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-APT-011 | Empty appointments list | No bookings | Navigate to Appointments | Empty state displayed | | | | |
+| P-APT-013 | Appointment with partial payment | Deposit paid, balance pending | View appointment | Payment status shows "Partial" | | | | |
+| P-APT-014 | Appointment with full payment | Full amount paid | View appointment | Payment status shows "Full" or "Paid" | | | | |
+| P-APT-015 | Provider can only see own appointments | Multiple providers | Login as provider1 | Only provider1's appointments visible | | | | |
 
 ---
 
-## Module 6: Quote Oversight
+## Module 6: Treatment Execution
 
-**FR Reference:** FR-004, FR-015, FR-016
-**Spec File:** `tests/admin-treatment-flow/admin-quote-oversight.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminQuoteOversightTest.php`
+**FR Reference:** FR-010
+**Spec File:** `tests/treatment-flow/provider-treatment-execution.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/TreatmentExecutionTest.php`
 
 ### 6.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-QOT-001 | All quotes displayed (platform-wide) | Quotes seeded | Navigate to quote oversight | Quotes from all providers listed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-002 | View individual quote detail | Quote exists | Click quote | Full quote: treatment type, packages, pricing, appointment, provider | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-003 | Commission rate configuration accessible (FR-015) | On admin settings | Navigate to commission settings | Commission rate fields visible, editable (Percentage or Flat Rate per FR-015) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-005 | API returns all quotes | Quotes seeded | `GET /api/admin/quotes` | 200 + all quotes across providers | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-TRT-001 | Treatment page loads for confirmed appointment | Confirmed booking, full payment | Navigate to treatment | Treatment detail page loads | | | | |
+| P-TRT-002 | Initiate patient check-in | On treatment page | Click check-in action | Check-in flow starts | | | | |
+| P-TRT-003 | Check-in validates full payment | Full payment made | Complete check-in | System confirms payment, check-in succeeds | | | | |
+| P-TRT-004 | Check-in changes status to "In Progress" | Check-in completed | Verify status | Status = "In Progress" | | | | |
+| P-TRT-005 | Assign clinician to procedure | In Progress | Select clinician from team | Clinician name recorded | | | | |
+| P-TRT-006 | Enter actual graft count | In Progress | Enter graft count (e.g., 2800) | Graft count saved | | | | |
+| P-TRT-007 | Add clinical notes | In Progress | Type procedure notes | Notes saved to treatment record | | | | |
+| P-TRT-008 | Upload before photos | In Progress | Upload image file(s) | Photos uploaded, categorized as "before" | | | | |
+| P-TRT-009 | Upload during photos | In Progress | Upload image file(s) | Photos uploaded, categorized as "during" | | | | |
+| P-TRT-010 | Upload after photos | In Progress | Upload image file(s) | Photos uploaded, categorized as "after" | | | | |
+| P-TRT-011 | Add post-op medication | In Progress | Medication name, dosage, frequency | Medication saved to treatment record | | | | |
+| P-TRT-012 | Add multiple medications | In Progress | 3 different medications | All medications saved | | | | |
+| P-TRT-013 | Mark procedure as complete | All documentation done | Click complete | Status transitions from "In Progress" | | | | |
 
-### 6.2 Filtering
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-QOT-006 | Filter by Draft status | Mixed quotes | Apply "Draft" | Only drafts shown | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-007 | Filter by Submitted status | Mixed quotes | Apply "Submitted" | Only submitted | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-008 | Filter by Accepted status | Mixed quotes | Apply "Accepted" | Only accepted | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-009 | Filter by Expired status | Mixed quotes | Apply "Expired" | Only expired | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 6.3 Edge Cases
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-QOT-010 | Quote expiry enforcement visible | Expired quote (48h+) | View quote | Clearly marked expired, non-actionable | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-011 | Financial summary matches individual quotes | Multiple quotes | Sum all quote totals vs summary | Amounts match | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-012 | Empty quotes list | No quotes | Navigate to oversight | Empty state | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-013 | Quote with zero packages | Base price only | View detail | Total = base price, no packages section | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-014 | Quote with maximum packages | All packages added | View detail | All packages visible, total correct | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 6.4 Admin Quote Management (FR-004)
+### 6.2 Edge Cases & Business Rules
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-QOT-015 | Admin inline edits quote fields with audit | Quote exists (non-terminal state) | Edit policy-bound fields, enter reason | Changes saved; audit trail records before/after values, reason, admin ID; re-notifications sent if impactful | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-016 | Admin soft-deletes quote with rationale | Quote exists (pre-acceptance) | Click soft delete, enter rationale | Quote archived; remains visible in audit/archive view; only admin can restore | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-017 | Admin restores archived quote | Archived quote exists | Click restore action | Quote restored to previous state; restoration logged in audit trail | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-018 | Admin configures quote expiry window | On admin settings | Modify expiry window setting | Expiry window updated; new quotes use updated window; existing quotes unaffected | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-TRT-014 | Check-in blocked without full payment | Partial payment only | Attempt check-in | Check-in blocked with payment-required message | | | | |
+| P-TRT-015 | Check-in blocked with no payment | No payment at all | Attempt check-in | Check-in blocked | | | | |
+| P-TRT-016 | Cannot complete procedure without clinician | In Progress, no clinician assigned | Attempt to complete | Blocked — clinician required | | | | |
+| P-TRT-017 | Upload invalid file type as photo | In Progress | Upload `.exe` file | Rejected with error | | | | |
+| P-TRT-018 | Upload oversized photo | In Progress | Image > max limit | Rejected with size error | | | | |
+| P-TRT-019 | Empty clinical notes | In Progress | Leave notes blank | Allowed — per-day clinical note is optional | | | | |
+| P-TRT-020 | Very long clinical notes | In Progress | 10000+ character notes | Saved or truncated at max length | | | | |
+| P-TRT-021 | Graft count differs from estimate | Estimate 3000, actual 2800 | Enter 2800 | Accepted, both values visible (estimate vs actual) | | | | |
+| P-TRT-022 | Treatment timeline shows chronological entries | Multiple actions documented | View timeline | Entries ordered by time, all actions visible | | | | |
+| P-TRT-023 | Cannot re-check-in an already checked-in patient | Status = In Progress | Attempt check-in again | Action not available or blocked | | | | |
 
-### 6.5 Parameterized: Commission Calculations [PARAM] (FR-015)
+### 6.3 Parameterized: Payment Status at Check-In [PARAM]
 
-| TC ID | Quote Total | Commission Rate | Expected Commission | Expected Provider Payout | Status | Actual Result | Severity | Notes |
-|-------|-----------|-----------------|--------------------|-----------------------|--------|---------------|----------|-------|
-| A-QOT-P01 | $5000 | 10% | $500.00 | $4500.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-P02 | $5000 | 15% | $750.00 | $4250.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-P03 | $5000 | 20% | $1000.00 | $4000.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-P04 | $3333.33 | 10% | $333.33 | $3000.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-P05 | $1 | 10% | $0.10 | $0.90 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-P06 | $99999.99 | 15% | $15000.00 | $84999.99 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-QOT-P07 | $0 | 10% | $0.00 | $0.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| TC ID | Payment Status | Deposit Paid | Balance Paid | Check-In Result | Status | Actual Result | Severity | Notes |
+|-------|---------------|-------------|-------------|-----------------|--------|---------------|----------|-------|
+| P-TRT-P01 | No payment | No | No | Blocked | | | | |
+| P-TRT-P02 | Deposit only | Yes | No | Blocked (balance required) | | | | |
+| P-TRT-P03 | Partial balance | Yes | Partial | Blocked | | | | |
+| P-TRT-P04 | Full payment | Yes | Yes | Allowed | | | | |
+
+### 6.4 Treatment Day Status Tracking (FR-010)
+
+| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
+| P-TRT-024 | View day-by-day treatment plan | Treatment In Progress | Check treatment detail | Per-day plan visible with day number, date, description (seeded from quote plan) | | | | |
+| P-TRT-025 | Update day status to "In Progress" | Treatment day exists | Change day status | Day status updated; timestamp logged | | | | |
+| P-TRT-026 | Update day status to "Completed" | Day In Progress | Mark day complete | Day status = Completed; next day becomes active | | | | |
+| P-TRT-027 | Add notes to a treatment day | Day exists | Enter day-specific notes | Notes saved to that day's record | | | | |
+| P-TRT-028 | Cannot mark future day as In Progress | Day is tomorrow | Attempt to start day | Blocked — cannot start future day | | | | |
+| P-TRT-029 | Billing Staff cannot document treatment | Logged in as Billing Staff | Attempt to add notes or photos | Access denied — clinical documentation restricted per FR-010 | | | | |
 
 ---
 
-## Module 7: Payment Administration
+## Module 7: Aftercare Setup & Monitoring
 
-**FR Reference:** FR-007, FR-007B
-**Spec File:** `tests/admin-treatment-flow/admin-payment-administration.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminPaymentTest.php`
+**FR Reference:** FR-011
+**Spec File:** `tests/treatment-flow/provider-aftercare.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/AftercareTest.php`
 
 ### 7.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAY-001 | Payment records list loads | Payments seeded | Navigate to billing | Payment list displayed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-002 | Each payment shows patient and provider | Payments exist | View list | Patient name, provider name, amount, status per row | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-003 | Payment status indicators correct | Various statuses | View list | Deposit/Partial/Full indicators match actual state | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-004 | View installment plan | Patient with installments | Click to view | Schedule: monthly amounts, due dates, status per installment | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-005 | View transaction history (Stripe) | Payment with transactions | View detail | Transaction IDs, amounts, dates, Stripe references visible | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-006 | Multi-currency amounts display correctly | Payments in USD/EUR/GBP/TRY | View list | Currency codes/symbols render correctly per transaction | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-007 | View provider billing/payouts | Provider with earnings | Navigate to provider billing | Earned amounts, commission deductions, payout history | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-008 | Deposit percentage configurable | On admin settings | Navigate to deposit settings | Current % visible, editable (20-30% range) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-009 | API returns payment list | Payments seeded | `GET /api/admin/payments` | 200 + payment records | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-010 | API returns payment detail | Payment exists | `GET /api/admin/payments/{id}` | 200 + full transaction data | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-AFT-001 | Aftercare section loads | Procedure completed | Navigate to AfterCare | Aftercare page loads | | | | |
+| P-AFT-002 | Select aftercare template | Templates seeded | Choose template from list | Template selected, milestones previewed | | | | |
+| P-AFT-003 | Customize aftercare instructions | Template selected | Edit instruction text | Customizations saved | | | | |
+| P-AFT-004 | Milestone schedule auto-generated | Template selected | Check milestones | Milestones: Day 1, Week 1, Month 1, Month 3, Month 6, Month 12 | | | | |
+| P-AFT-005 | Milestone dates calculated from treatment date | Treatment completed 2026-03-10 | Check milestone dates | Day 1 = Mar 11, Week 1 = Mar 17, Month 1 = Apr 10, etc. | | | | |
+| P-AFT-006 | Configure scan photo upload schedule | Template setup | Set intervals | Scan schedule saved | | | | |
+| P-AFT-007 | Configure questionnaire schedule | Template setup | Set intervals | Questionnaire schedule saved | | | | |
+| P-AFT-008 | Activate aftercare plan | All setup complete | Click Activate | Status changes to "Aftercare" | | | | |
+| P-AFT-009 | View aftercare dashboard | Plan activated | Navigate to dashboard | Milestones, progress tracker visible | | | | |
+| P-AFT-010 | Review patient scan submission | Patient uploaded scan | View submissions | Photo viewable with comparison tools | | | | |
+| P-AFT-011 | Review patient questionnaire | Patient completed questionnaire | View responses | Pain, sleep, compliance scores displayed | | | | |
+| P-AFT-012 | Add aftercare notes | Dashboard open | Enter notes | Notes saved to aftercare record | | | | |
+| P-AFT-013 | Specify post-op medications | Aftercare setup | Add name, dosage, frequency, instructions | Medication list created | | | | |
 
-### 7.2 Edge Cases & Business Rules
+### 7.2 Edge Cases
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-PAY-011 | Deposit % below minimum (< 20%) | Admin settings | Set deposit to 15% | Rejected — deposit percentage must stay within the configured 20-30% range | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-012 | Deposit % above maximum (> 30%) | Admin settings | Set deposit to 35% | Rejected — deposit percentage must stay within the configured 20-30% range | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-013 | Deposit % at boundary (20%) | Admin settings | Set deposit to 20% | Accepted | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-014 | Deposit % at boundary (30%) | Admin settings | Set deposit to 30% | Accepted | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-015 | Installment plan completes 30 days before procedure | Installment plan | Check last payment due date | Last installment ≥ 30 days before procedure date | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-016 | Empty payment records | No payments | Navigate to billing | Empty state message | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-017 | Changed deposit % applies to new bookings | New % saved | Create new booking | New deposit calculated with updated % | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-AFT-014 | Activate without selecting template | No template selected | Click Activate | Blocked — template required | | | | |
+| P-AFT-015 | Empty customization | Template selected | Clear all instruction text | Allowed (uses default template text) or validation error | | | | |
+| P-AFT-016 | No patient submissions yet | Plan just activated | View dashboard | Empty state for submissions, milestones pending | | | | |
+| P-AFT-017 | Patient submits scan at unexpected time | Between scheduled intervals | View submission | Submission accepted and visible | | | | |
+| P-AFT-018 | High pain questionnaire response | Pain score ≥ 8 out of 10 | View response | Flagged as urgent/high priority | | | | |
 
-### 7.3 Parameterized: Deposit Calculations [PARAM]
+### 7.3 Parameterized: Milestone Date Calculations [PARAM]
 
-| TC ID | Quote Total | Deposit % | Expected Deposit | Expected Balance | Status | Actual Result | Severity | Notes |
-|-------|-----------|-----------|-----------------|-----------------|--------|---------------|----------|-------|
-| A-PAY-P01 | $5000 | 20% | $1000.00 | $4000.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P02 | $5000 | 25% | $1250.00 | $3750.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P03 | $5000 | 30% | $1500.00 | $3500.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P04 | $3333.33 | 20% | $666.67 | $2666.66 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P05 | $10000 | 25% | $2500.00 | $7500.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P06 | $999.99 | 20% | $200.00 | $799.99 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 7.4 Parameterized: Installment Plans [PARAM]
-
-| TC ID | Balance | Months | Monthly Payment | Last Payment | 30-Day Rule Met? | Status | Actual Result | Severity | Notes |
-|-------|---------|--------|----------------|-------------|-----------------|--------|---------------|----------|-------|
-| A-PAY-P07 | $4000 | 2 | $2000.00 | $2000.00 | Check | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P08 | $4000 | 4 | $1000.00 | $1000.00 | Check | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P09 | $4000 | 6 | $666.67 | $666.67 | Check | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P10 | $4000 | 9 | $444.44 | $444.48 | Check | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P11 | $5000 | 3 | $1666.67 | $1666.66 | Check | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P12 | $1000 | 2 | $500.00 | $500.00 | Check | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P13 | $7777.77 | 7 | $1111.11 | $1111.11 | Check | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 7.5 Parameterized: Multi-Currency Display [PARAM]
-
-| TC ID | Amount | Currency | Expected Display | Status | Actual Result | Severity | Notes |
-|-------|--------|----------|-----------------|--------|---------------|----------|-------|
-| A-PAY-P14 | 5000 | USD | $5,000.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P15 | 5000 | EUR | €5,000.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P16 | 5000 | GBP | £5,000.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P17 | 150000 | TRY | ₺150,000.00 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P18 | 0.01 | USD | $0.01 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-PAY-P19 | 999999.99 | GBP | £999,999.99 | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| TC ID | Treatment Date | Milestone | Expected Date | Status | Actual Result | Severity | Notes |
+|-------|---------------|-----------|---------------|--------|---------------|----------|-------|
+| P-AFT-P01 | 2026-03-10 | Day 1 | 2026-03-11 | | | | |
+| P-AFT-P02 | 2026-03-10 | Week 1 | 2026-03-17 | | | | |
+| P-AFT-P03 | 2026-03-10 | Month 1 | 2026-04-10 | | | | |
+| P-AFT-P04 | 2026-03-10 | Month 3 | 2026-06-10 | | | | |
+| P-AFT-P05 | 2026-03-10 | Month 6 | 2026-09-10 | | | | |
+| P-AFT-P06 | 2026-03-10 | Month 12 | 2027-03-10 | | | | |
+| P-AFT-P07 | 2026-01-31 | Month 1 | 2026-02-28 (or 2026-03-02 — check logic) | | | | |
+| P-AFT-P08 | 2025-12-31 | Month 1 | 2026-01-31 | | | | |
 
 ---
 
-## Module 8: Treatment Monitoring
+## Module 8: Treatment Completion
 
-**FR Reference:** FR-010, FR-016
-**Spec File:** `tests/admin-treatment-flow/admin-treatment-monitoring.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminTreatmentMonitoringTest.php`
+**FR Reference:** FR-010, FR-011
+**Spec File:** `tests/treatment-flow/provider-treatment-completion.spec.ts`
+**PHPUnit File:** `tests/Feature/TreatmentFlow/TreatmentCompletionTest.php`
 
 ### 8.1 Main Flow
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-TRT-001 | Treatment list loads (platform-wide) | Treatments seeded | Navigate to treatments | Treatments from all providers listed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-002 | View treatment detail | Treatment exists | Click treatment | Detail page: provider, patient, status, procedure docs | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-003 | View treatment timeline | Treatment with activity | Check timeline | Chronological events displayed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-004 | View procedure documentation | Provider uploaded docs | Check documentation | Photos, notes, medications viewable by admin | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-005 | Admin can add notes to treatment | Treatment exists | Enter admin note | Note saved to treatment record | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-006 | Admin can flag a treatment | Treatment exists | Click flag action | Flag saved, treatment marked | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-007 | API returns treatment list | Treatments seeded | `GET /api/admin/treatments` | 200 + all treatments | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-CMP-001 | View treatment with completed aftercare milestones | All milestones marked complete | Navigate to treatment | All milestones show completed status | | | | |
+| P-CMP-002 | Mark treatment as "Completed" | All milestones complete | Click complete/finish | Status = "Completed" | | | | |
+| P-CMP-003 | Completed treatment appears in history | Treatment completed | Navigate to completed treatments | Treatment visible in historical list | | | | |
+| P-CMP-004 | Full treatment timeline viewable | Treatment completed | View timeline | Complete history: inquiry → quote → booking → treatment → aftercare → completed | | | | |
 
-### 8.2 Filtering
+### 8.2 Edge Cases
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-TRT-008 | Filter by Confirmed | Mixed statuses | Apply "Confirmed" | Only confirmed treatments | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-009 | Filter by In Progress | Mixed statuses | Apply "In Progress" | Only in-progress | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-010 | Filter by Aftercare | Mixed statuses | Apply "Aftercare" | Only aftercare | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-011 | Filter by Completed | Mixed statuses | Apply "Completed" | Only completed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 8.3 Edge Cases
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-TRT-012 | Empty treatment list | No treatments | Navigate | Empty state message | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-013 | Treatment with no documentation | Just confirmed, no procedure | View detail | Documentation section shows empty state | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-014 | Admin full editorial access to treatment | Treatment exists | Attempt to edit treatment record fields (day status, notes, clinician) | Admin can view and edit any treatment record field; all edits are logged in audit trail with reason (FR-010) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-015 | Real-time status update visible | WebSocket connected | Provider changes treatment status | Admin view updates without page refresh | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 8.4 Admin Edit Capabilities (FR-010)
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-TRT-016 | Admin edits treatment day status | Treatment in progress | Change a day status (e.g., "Not started" → "In progress") | Day status updated; change logged in audit trail with admin ID, timestamp, reason | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-017 | Admin edits treatment day notes | Treatment with provider notes | Edit provider's clinical notes, enter reason | Notes updated; before/after values preserved in audit | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-018 | Admin reassigns clinician on treatment | Treatment checked in with clinician | Select different clinician, enter reason | Clinician reassigned; previous value preserved in audit history; edit logged | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-TRT-019 | Admin manually triggers status transition | Treatment in "In Progress" | Change case status to "Aftercare", enter reason | Status transition applied; logged in audit trail; downstream effects triggered | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-CMP-006 | Cannot move directly from In Progress to Completed | Treatment status still In Progress | Attempt to mark Completed | Rejected — case must pass through Aftercare before Completed | | | | |
+| P-CMP-007 | Cannot edit completed treatment | Status = Completed | Attempt to edit | Editing disabled or locked | | | | |
+| P-CMP-008 | Cannot re-complete a completed treatment | Already completed | Attempt complete again | Action not available | | | | |
 
 ---
 
-## Module 9: Aftercare Administration
+## Module 9: Cross-Cutting Concerns
 
-**FR Reference:** FR-011, FR-016
-**Spec File:** `tests/admin-treatment-flow/admin-aftercare-oversight.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminAftercareTest.php`
+**FR Reference:** FR-020, FR-009
 
-### 9.1 Main Flow
+### 9.1 Notifications
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-AFT-001 | Aftercare case list loads | Aftercare data seeded | Navigate to aftercare admin | Aftercare cases listed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-002 | View aftercare plan | Case exists | Click case | Plan: template, milestones, patient submissions | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-003 | Assign aftercare specialist | Case without specialist | Select specialist | Specialist assigned, reflected in case detail | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-004 | Change aftercare specialist | Case with specialist | Select different specialist | Specialist updated | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-005 | View milestone progress | Milestones seeded | Check milestones | Completion status for each milestone (done/pending/overdue) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-006 | View patient scan photos | Patient submitted scans | Check submissions | Photos viewable with timestamps | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-007 | View questionnaire responses | Patient completed questionnaires | Check responses | Pain, sleep, compliance scores structured and readable | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-008 | Access aftercare messaging | Case exists | Click communication | Aftercare conversations accessible | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-009 | API returns aftercare list | Data seeded | `GET /api/admin/aftercare` | 200 + aftercare cases | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-010 | API assigns specialist | Case exists | `PUT /api/admin/aftercare/{id}/specialist` | 200 + specialist updated | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-XCT-001 | Notification dropdown accessible | Logged in | Click bell icon | Dropdown opens with notifications | | | | |
+| P-XCT-002 | Notifications load with infinite scroll | 20+ notifications | Scroll dropdown | More notifications load | | | | |
+| P-XCT-003 | Click notification navigates to source | Notification exists | Click a notification | Navigates to relevant page (inquiry, appointment, etc.) | | | | |
+| P-XCT-004 | Real-time notification received | WebSocket connected | Trigger event (e.g., new inquiry) | Notification appears without refresh | | | | |
+| P-XCT-005 | Notification count badge updates | New notification arrives | Check badge | Count increments | | | | |
 
-### 9.2 Edge Cases
+### 9.2 Role-Based Access
 
 | TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-AFT-011 | Empty aftercare list | No aftercare cases | Navigate | Empty state | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-012 | Case with no patient submissions | Plan just activated | View case | Submissions section empty state | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-013 | Case with overdue milestones | Milestone date passed, not completed | View case | Overdue milestone highlighted/flagged | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-014 | Assign specialist to case that already has one | Specialist assigned | Assign different | Previous specialist replaced, new one assigned | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-015 | Standalone aftercare service pricing | Admin settings | Check pricing config | Template-based pricing configurable per FR-011: Fixed Price, Monthly Subscription, or Both; multi-currency support (pricing set per template per currency) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-AFT-016 | Urgent case flagging (high pain) | Questionnaire pain ≥ 8 | View case | Case flagged as urgent/high priority | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-XCT-006 | Owner has full access | Logged in as owner | Navigate all sections | All sections accessible | | | | |
+| P-XCT-007 | Manager has restricted access | Logged in as manager | Navigate all sections | Some sections restricted per permissions | | | | |
+| P-XCT-008 | Clinician/Surgeon has clinical-only access | Logged in as clinician | Navigate all sections | Access limited to clinical features | | | | |
+| P-XCT-009 | Billing Staff has basic access | Logged in as Billing Staff | Navigate all sections | Most admin features restricted | | | | |
+| P-XCT-010 | API enforces role permissions | Token of Billing Staff role | `PUT /api/provider/settings` (owner-only) | 403 Forbidden | PASS | Billing-staff provider token was denied from admin settings API path (unauthorized/forbidden). |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
+
+### 9.3 Data Integrity
+
+| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
+|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
+| P-XCT-011 | Patient remains masked before payment | Inquiry stage | Check patient data via API | Patient name/contact null or masked | | | | |
+| P-XCT-012 | Patient unmasked after payment | Payment completed | Check patient data via API | Patient name/contact fully visible | | | | |
+| P-XCT-013 | Treatment status transitions are valid | Various treatments | Check each transition | Only valid transitions allowed (Confirmed → In Progress → Aftercare → Completed) | | | | |
+| P-XCT-014 | Invalid status transition rejected | Treatment "Completed" | Attempt to set to "In Progress" | Rejected — invalid transition | | | | |
+
+### 9.4 Parameterized: Status Transitions [PARAM]
+
+| TC ID | From Status | To Status | Expected | Status | Actual Result | Severity | Notes |
+|-------|------------|-----------|----------|--------|---------------|----------|-------|
+| P-XCT-P01 | Confirmed | In Progress | Allowed (via check-in) | | | | |
+| P-XCT-P02 | In Progress | Aftercare | Allowed (via procedure complete) | | | | |
+| P-XCT-P03 | Aftercare | Completed | Allowed (via treatment complete) | | | | |
+| P-XCT-P04 | Confirmed | Aftercare | Rejected (skip) | | | | |
+| P-XCT-P05 | Confirmed | Completed | Rejected (skip) | | | | |
+| P-XCT-P06 | In Progress | Confirmed | Rejected (backward) | | | | |
+| P-XCT-P07 | Aftercare | In Progress | Rejected (backward) | | | | |
+| P-XCT-P08 | Completed | Aftercare | Rejected (backward) | | | | |
+| P-XCT-P09 | Completed | Confirmed | Rejected (backward) | | | | |
 
 ---
 
-## Module 10: Treatment Completion
+## Module 10: Smoke Tests
 
-**FR Reference:** FR-010, FR-011, FR-016
-**Spec File:** `tests/admin-treatment-flow/admin-treatment-completion.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminTreatmentCompletionTest.php`
-
-### 10.1 Main Flow
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-RPT-001 | Completed treatments listed | Completed treatments seeded | Filter to completed | Completed treatments displayed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-RPT-002 | View full treatment lifecycle | Completed treatment | Click treatment | Full timeline: inquiry → quote → booking → treatment → aftercare → completion | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-RPT-003 | View outcome documentation | Completed treatment | Check records | Final photos, notes, patient satisfaction visible | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 10.2 Edge Cases
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-RPT-013 | Completed treatment shows all lifecycle records | Completed treatment exists | Verify all linked records present | Inquiry, quote, booking, payment, treatment, and aftercare records all exist and are cross-linked | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
----
-
-## Module 11: Cross-Cutting Concerns
-
-**FR Reference:** FR-020
-**Spec File:** `tests/admin-treatment-flow/admin-cross-cutting.spec.ts`
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/AdminCrossCuttingTest.php`
-
-### 11.1 Data Visibility & Integrity
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-XCT-001 | Admin sees data from ALL providers | Multiple providers seeded | Check patient/inquiry/treatment lists | Data from every provider present | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
-| A-XCT-002 | Admin sees data from ALL patients | Multiple patients seeded | Check patient list | All patients visible regardless of provider | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-XCT-003 | Soft-deleted records not shown | Soft-deleted patient | Check patient list | Deleted patient not visible in list | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-XCT-004 | UUID format consistent | Various records | Check ID fields | All IDs follow UUID format | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 11.2 Configuration Changes
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-XCT-005 | Admin changes deposit % | On settings | Change from 20% to 25% | Saved, next booking uses 25% | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-XCT-006 | Admin changes commission rate (FR-015) | On settings | Change from 10% to 15% | Saved, next quote uses 15% | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-XCT-007 | Configuration change does not retroactively affect existing bookings | Existing booking at 20% | Change to 25% | Existing booking still shows 20% deposit | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 11.3 Error Handling
-
-| TC ID | Test Case | Preconditions | Test Data | Expected Result | Status | Actual Result | Severity | Notes |
-|-------|-----------|---------------|-----------|-----------------|--------|---------------|----------|-------|
-| A-XCT-008 | API returns 404 for non-existent patient | Logged in | `GET /api/admin/patients/nonexistent-uuid` | 404 Not Found with appropriate message | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-XCT-009 | API returns 422 for invalid input | Logged in | `PUT /api/admin/settings/deposit` with value=-5 | 422 with validation error | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-XCT-010 | Graceful handling of backend error | Logged in | Trigger 500 (if possible) | UI shows error state, does not crash | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
----
-
-## Module 12: Smoke Tests
-
-**Purpose:** Quick sanity check — "is the admin system alive?" Run before the full suite.
+**Purpose:** Quick sanity check — "is the system alive?" Run before the full suite.
 **Tag:** `@smoke`
 **Target:** Complete in under 2 minutes.
 
 | TC ID | Test Case | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|-----------------|--------|---------------|----------|-------|
-| A-SMK-001 | Admin login succeeds | Dashboard loads | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-002 | Dashboard metrics load | Widgets display data | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-003 | Patient list page loads | Patient table displayed | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-004 | Provider list page loads | Provider table displayed | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-005 | Payment/billing page loads | Payment records displayed | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-007 | Aftercare page loads | Aftercare cases listed | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-008 | Settings page loads | Admin settings rendered | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-009 | Notifications dropdown opens | Dropdown appears | PASS | As expected in latest FE full-suite run (19 passed, 255 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/admin-treatment-flow --config=playwright.live.config.ts --reporter=line. |
-| A-SMK-010 | Admin API auth works | `GET /api/admin/dashboard` with token returns 200 | PASS | As expected in latest backend contract run under testing environment. |  | Runtime: php artisan test tests/Feature/AdminTreatmentFlow/AdminDashboardAuthContractTest.php --env=testing. |
+| P-SMK-001 | Provider login succeeds | Dashboard loads | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-002 | Inquiry list page loads | Inquiries displayed (or empty state) | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-003 | Quote creation form opens | Form renders with fields | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-004 | Appointments page loads | Appointments list displayed | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-005 | Treatment detail page loads | Treatment data rendered | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-006 | Aftercare page loads | Aftercare section rendered | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-007 | Settings page loads | Settings with sections rendered | PASS | As expected in latest FE treatment-flow run (14 passed, 265 skipped). |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-008 | Notifications dropdown opens | Dropdown appears with items or empty state | PASS | Notification trigger opened dropdown/overlay in provider dashboard. |  | Runtime: PLAYWRIGHT_BROWSERS_PATH=/Users/nhut/Library/Caches/ms-playwright npx --no-install playwright test tests/treatment-flow --config=playwright.live.config.ts --reporter=line. |
+| P-SMK-009 | API health check | `GET /api/` returns response (not 500) | PASS | Health endpoint responded without 500 error. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
+| P-SMK-010 | Provider API auth works | `GET /api/provider/inquiries` with token returns 200 | PASS | Authenticated provider request succeeded and was not rejected by auth middleware. |  | Runtime: docker compose exec php bash -lc "php artisan test tests/Feature/TreatmentFlow/ProviderDashboardAuthContractTest.php --colors=never". |
 
 ---
 
-## Module 13: Idempotency Tests
+## Module 11: Idempotency Tests
 
-**Purpose:** Verify that repeating the same admin action does not cause duplicates or corruption.
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/IdempotencyTest.php`
+**Purpose:** Verify that repeating the same action does not cause duplicates, corruption, or side effects.
+**FR Reference:** FR-004 (quotes), FR-007 (payments), FR-010 (treatment), FR-011 (aftercare)
+**PHPUnit File:** `tests/Feature/TreatmentFlow/IdempotencyTest.php`
 
-### 13.1 Configuration Operations
-
-| TC ID | Test Case | Action | 1st Call Expected | 2nd Call Expected | Status | Actual Result | Severity | Notes |
-|-------|-----------|--------|------------------|------------------|--------|---------------|----------|-------|
-| A-IDP-001 | Set deposit % twice to same value | `PUT /api/admin/settings/deposit` with 25% x2 | 200, deposit=25% | 200, deposit still 25% (idempotent, no error) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-IDP-002 | Set commission rate twice | `PUT /api/admin/settings/commission` with 15% x2 | 200, rate=15% | 200, rate still 15% | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 13.2 Specialist Assignment
+### 11.1 Quote Operations
 
 | TC ID | Test Case | Action | 1st Call Expected | 2nd Call Expected | Status | Actual Result | Severity | Notes |
 |-------|-----------|--------|------------------|------------------|--------|---------------|----------|-------|
-| A-IDP-003 | Assign same specialist to same case twice | `PUT /api/admin/aftercare/{id}/specialist` x2 | 200, specialist assigned | 200, same specialist (no duplicate assignment) | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-IDP-004 | Flag same conversation twice | `POST /api/admin/conversations/{id}/flag` x2 | 200, flagged | Idempotent (still flagged) — NOT double-flagged | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-IDP-001 | Submit same quote twice | `POST /api/provider/quotes/{id}/submit` x2 | 200, status=Submitted | Rejected (already submitted) or same result (idempotent) — NO duplicate quote created | | | | |
+| P-IDP-002 | Save same draft twice | `PUT /api/provider/quotes/{id}` x2 with same data | 200, draft saved | 200, same draft (no duplicate) | | | | |
+| P-IDP-003 | Add same package twice | Add hotel package, then add hotel again | 1st: package added | 2nd: rejected as duplicate OR replaces — NOT two hotel packages | | | | |
 
-### 13.3 Provider Status Operations
-
-| TC ID | Test Case | Action | 1st Call Expected | 2nd Call Expected | Status | Actual Result | Severity | Notes |
-|-------|-----------|--------|------------------|------------------|--------|---------------|----------|-------|
-| A-IDP-005 | Suspend provider twice | `PUT /api/admin/providers/{id}/status` suspend x2 | 200, status=suspended | Second request causes no additional state change; provider remains suspended and no duplicate suspension effect is created | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-IDP-006 | Activate provider twice | `PUT /api/admin/providers/{id}/status` activate x2 | 200, status=Active | Second request causes no additional state change; provider remains Active and no duplicate activation effect is created | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 13.4 Admin Notes
+### 11.2 Treatment Operations
 
 | TC ID | Test Case | Action | 1st Call Expected | 2nd Call Expected | Status | Actual Result | Severity | Notes |
 |-------|-----------|--------|------------------|------------------|--------|---------------|----------|-------|
-| A-IDP-007 | Add identical admin note to treatment twice | Same note text submitted x2 | 1st: note created | 2nd: duplicate accepted (notes are append-only) OR rejected — verify no silent corruption | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-IDP-004 | Check-in patient twice | `POST /api/provider/treatments/{id}/check-in` x2 | 200, status=In Progress | Rejected (already checked in) — NOT double check-in | | | | |
+| P-IDP-005 | Complete procedure twice | `PUT /api/provider/treatments/{id}/complete` x2 | 200, status transitions | Rejected (already completed) or same result | | | | |
+| P-IDP-006 | Upload same photo twice | `POST /api/provider/treatments/{id}/photos` x2, same file | 1st: photo stored | 2nd: duplicate detected or allowed but no data corruption | | | | |
+| P-IDP-007 | Add same medication twice | Same name, dosage, frequency submitted x2 | 1st: medication added | 2nd: duplicate rejected OR allowed — verify no silent corruption | | | | |
+
+### 11.3 Aftercare Operations
+
+| TC ID | Test Case | Action | 1st Call Expected | 2nd Call Expected | Status | Actual Result | Severity | Notes |
+|-------|-----------|--------|------------------|------------------|--------|---------------|----------|-------|
+| P-IDP-008 | Activate aftercare plan twice | `PUT /api/provider/aftercare/{id}/activate` x2 | 200, status=Aftercare | Rejected (already active) or idempotent — NOT two plans | | | | |
+| P-IDP-009 | Complete treatment twice | `PUT /api/provider/treatments/{id}/finish` x2 | 200, status=Completed | Rejected or idempotent — no duplicate completion | | | | |
+
+### 11.4 Team Operations
+
+| TC ID | Test Case | Action | 1st Call Expected | 2nd Call Expected | Status | Actual Result | Severity | Notes |
+|-------|-----------|--------|------------------|------------------|--------|---------------|----------|-------|
+| P-IDP-010 | Invite same email twice | Send invitation to same email x2 | 1st: invitation sent | 2nd: rejected (already invited) — NOT two pending invitations | | | | |
 
 ---
 
-## Module 14: Race Condition Tests
+## Module 12: Race Condition Tests
 
-**Purpose:** Verify the admin system handles concurrent admin actions correctly.
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/RaceConditionTest.php`
+**Purpose:** Verify the system handles concurrent actions correctly without data corruption.
+**PHPUnit File:** `tests/Feature/TreatmentFlow/RaceConditionTest.php`
 
 | TC ID | Test Case | Concurrent Actions | Expected Result | Status | Actual Result | Severity | Notes |
 |-------|-----------|-------------------|-----------------|--------|---------------|----------|-------|
-| A-RAC-001 | Two admins change deposit % simultaneously | Admin A sets 20% + Admin B sets 25% at same time | One value wins (last-write-wins), no corrupted half-state, final value is either 20% or 25% | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-RAC-002 | Two admins assign different specialists to same case | Admin A assigns Specialist X + Admin B assigns Specialist Y | One assignment wins, only ONE specialist assigned, no duplicate | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-RAC-003 | Admin changes commission while provider submits quote | Admin updates rate + Provider creates quote simultaneously | Quote uses either old OR new rate consistently — NOT a mixed calculation | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-RAC-004 | Two admins flag same conversation | Both flag at same time | Conversation flagged once, no duplicate flag records | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-RAC-005 | Admin suspends provider while provider submits quote | Suspend + quote submit at same time | Either: quote accepted then provider suspended, OR provider suspended and quote rejected — NOT both succeeding with suspended provider having active quote | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-RAC-006 | Concurrent patient search requests | 10 rapid search requests | All return correct results, no timeouts, no mixed-up results | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-RAC-001 | Two providers quote same inquiry simultaneously | Provider A submits quote + Provider B submits quote at same time | Both quotes created, each linked to correct provider, inquiry not corrupted | | | | |
+| P-RAC-002 | Provider submits quote while inquiry expires | Submit at 71h59m, expiry at 72h00m | Either accepted (submitted before expiry) or rejected (expired) — NOT partially saved | | | | |
+| P-RAC-003 | Two team members update same treatment simultaneously | Clinician adds notes + Manager uploads photo at same time | Both changes saved, no overwrite, no data loss | | | | |
+| P-RAC-004 | Provider edits quote while patient accepts it | Provider updates price + Patient accepts (via API) simultaneously | One of: price update rejected (already accepted) OR acceptance uses original price — NOT mixed state | | | | |
+| P-RAC-005 | Double-click on check-in button | Two rapid check-in requests | Only one check-in processed, status=In Progress, no duplicate records | | | | |
+| P-RAC-006 | Rapid quote form submission (double-click) | Submit button clicked twice quickly | Only one quote created | | | | |
+| P-RAC-007 | Two providers revoke same team member simultaneously | Both send revoke request | Member revoked once, no error on second request | | | | |
 
 ---
 
-## Module 15: Data Consistency Tests
+## Module 13: Data Consistency Tests
 
-**Purpose:** Verify admin views show data that is consistent with the underlying database across all tables.
-**PHPUnit File:** `tests/Feature/AdminTreatmentFlow/DataConsistencyTest.php`
+**Purpose:** After completing a full treatment flow, verify ALL related records across ALL tables are consistent.
+**PHPUnit File:** `tests/Feature/TreatmentFlow/DataConsistencyTest.php`
 
-### 15.1 Dashboard Metrics Consistency
+### 13.1 Cross-Table Consistency (After Full Flow)
 
-| TC ID | Test Case | Verification | Expected | Status | Actual Result | Severity | Notes |
-|-------|-----------|-------------|----------|--------|---------------|----------|-------|
-| A-DAT-001 | Provider count matches database | Dashboard provider metric vs `SELECT COUNT(*) FROM providers` | Counts match | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-002 | Patient count matches database | Dashboard patient metric vs DB count | Counts match | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-003 | Active inquiry count matches database | Dashboard metric vs DB count (non-expired inquiries) | Counts match | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-004 | Active treatment count matches database | Dashboard metric vs DB count (status IN active states) | Counts match | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-005 | Revenue summary matches payment records | Dashboard revenue vs SUM of payments | Amounts match exactly | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 15.2 Cross-Table Consistency (Admin View)
+Run a complete treatment flow via API, then verify every related record.
 
 | TC ID | Test Case | Tables Checked | Expected Consistency | Status | Actual Result | Severity | Notes |
 |-------|-----------|---------------|---------------------|--------|---------------|----------|-------|
-| A-DAT-006 | Patient detail shows all their inquiries | patients, inquiries | Every inquiry for that patient appears in the detail view | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-007 | Patient detail shows all their treatments | patients, treatments | Every treatment for that patient listed | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-008 | Patient billing matches payment table | patient billing view, payments table | Sum of displayed payments = sum of DB payments for that patient | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-009 | Provider detail shows all their quotes | providers, quotes | All quotes from that provider listed in detail | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-010 | Provider billing matches commission table | provider billing view, commissions | Displayed earnings = DB commission records | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-DAT-001 | Inquiry → Quote linkage | inquiries, quotes | Quote's `inquiry_id` matches the inquiry, inquiry status reflects quote submission | | | | |
+| P-DAT-002 | Quote → Booking linkage | quotes, bookings | Booking references the accepted quote, quote status = "Accepted" | | | | |
+| P-DAT-003 | Booking → Payment linkage | bookings, payments | Payment `booking_id` matches, payment amount = quote total (or deposit amount), payment status consistent with booking status | | | | |
+| P-DAT-004 | Booking → Treatment linkage | bookings, treatments | Treatment references the booking, treatment `patient_id` = booking `patient_id`, treatment `provider_id` = quote `provider_id` | | | | |
+| P-DAT-005 | Treatment → Aftercare linkage | treatments, aftercare_plans | Aftercare `treatment_id` references the treatment, aftercare created only after procedure completion | | | | |
+| P-DAT-006 | Aftercare → Milestones linkage | aftercare_plans, aftercare_milestones | All milestones reference the correct plan, milestone dates are in chronological order | | | | |
+| P-DAT-007 | Patient anonymization consistency | patients, inquiries, quotes, treatments | Pre-payment: patient masked in inquiry/quote records. Post-payment: patient unmasked in treatment/booking records | | | | |
 
-### 15.3 Financial Consistency
-
-| TC ID | Test Case | Verification | Expected | Status | Actual Result | Severity | Notes |
-|-------|-----------|-------------|----------|--------|---------------|----------|-------|
-| A-DAT-011 | Total revenue = sum of all completed payments | Compare dashboard total vs payment table | Exact match | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-012 | Commission + provider payout = quote total | For each completed quote | commission_amount + provider_payout = quote_total | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-013 | Revenue by treatment type sums to total revenue | Sum of FUE + FUT + DHI revenue | Equals total platform revenue | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-014 | Revenue by provider sums to total revenue | Sum of all provider revenues | Equals total platform revenue | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-015 | Deposit + installments + balance paid = quote total | For each booking | All payment components sum to original quote total | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-
-### 15.4 Configuration Effect Consistency
+### 13.2 Financial Consistency
 
 | TC ID | Test Case | Verification | Expected | Status | Actual Result | Severity | Notes |
 |-------|-----------|-------------|----------|--------|---------------|----------|-------|
-| A-DAT-016 | New deposit % only affects new bookings | Change % then check old + new bookings | Old bookings: old %. New bookings: new % | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-017 | New commission rate only affects new quotes | Change rate then check old + new quotes | Old quotes: old rate. New quotes: new rate | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
-| A-DAT-018 | Suspended provider cannot receive new inquiries | Suspend provider, create inquiry | Suspended provider NOT in distribution list | BLOCKED | Not executable in this run: case is represented by test.fixme placeholder baseline only. |  | Implement deterministic FE/BE automated assertion for this TC ID, then rerun. |
+| P-DAT-008 | Quote total = base + packages | Sum all package prices + base | Stored total matches calculated sum | | | | |
+| P-DAT-009 | Payment amount = quote total | Compare payment records to quote | Amounts match (considering deposits/installments) | | | | |
+| P-DAT-010 | Deposit + balance = total | Sum deposit paid + balance remaining | Equals quote total exactly | | | | |
+| P-DAT-011 | All installments sum to balance | Sum all installment amounts | Equals total balance (after deposit) | | | | |
+| P-DAT-012 | Treatment graft count recorded | Compare estimate vs actual | Both values stored, actual reflects procedure | | | | |
+
+### 13.3 Status Consistency
+
+| TC ID | Test Case | Verification | Expected | Status | Actual Result | Severity | Notes |
+|-------|-----------|-------------|----------|--------|---------------|----------|-------|
+| P-DAT-013 | Completed treatment has completed aftercare | Treatment status=Completed | Aftercare plan exists and milestones are complete | | | | |
+| P-DAT-014 | In-progress treatment has confirmed booking | Treatment status=In Progress | Booking status=Confirmed, full payment exists | | | | |
+| P-DAT-015 | Cancelled quotes when one accepted | Multiple quotes for same inquiry | Accepted quote: status=Accepted. All others: status=Cancelled | | | | |
+| P-DAT-016 | Timeline entries exist for every status change | Treatment completed | Timeline has entries for: confirmed, checked-in, in-progress, procedure-complete, aftercare-activated, completed | | | | |
 
 ---
 
 ## Summary
 
-Execution summary below reflects the automated FE+BE runtime commands executed on 2026-03-18.
+**Fill this section after completing the test run.**
 
 ### Run Statistics
 
 | Metric | Count |
 |--------|-------|
-| Total test cases | 274 |
-| PASS | 28 |
-| FAIL | 5 |
-| BLOCKED | 241 |
+| Total test cases | 279 |
+| PASS | 23 |
+| FAIL | 0 |
+| BLOCKED | 256 |
 | SKIP | 0 |
-| Pass rate | 10.22% |
+| Pass rate | 8.24% |
 
 ### Failures by Severity
 
 | Severity | Count |
 |----------|-------|
-| Critical | 1 |
-| High | 4 |
+| Critical | 0 |
+| High | 0 |
 | Medium | 0 |
 | Low | 0 |
 
 ### Gaps & Discrepancies Found
 
-For each FAIL, describe the business gap:
+List each FAIL grouped by the business rule it violates. For each gap, describe:
 
 1. **What is broken:** (one sentence)
 2. **Business rule violated:** (FR reference + specific rule)
@@ -750,20 +682,21 @@ For each FAIL, describe the business gap:
 
 | # | What is Broken | FR Violated | Risk if Unfixed | TC IDs |
 |---|---------------|-------------|-----------------|--------|
-| 1 | Provider-token requests are being accepted on multiple admin endpoints that should be forbidden. | FR-031 role isolation + admin endpoint protection rules | Unauthorized provider access to admin data/settings creates security and compliance risk. | A-AUTH-P02, A-AUTH-P03, A-AUTH-P05, A-AUTH-P07 |
-| 2 | Admin payments endpoint crashes with SQL error (unknown column providers.first_name) and returns 500. | FR-007/007B + FR-016 API reliability and data integrity expectations | Admin payment oversight is unreliable and can break operational monitoring/reporting. | A-AUTH-P04 |
-| 3 | Remaining checklist scope is still represented by fixme placeholders (not yet executable automation). | HAIRL-982 full-scope execution expectation | Large portion of scope remains unverified until deterministic tests are implemented. | Remaining BLOCKED TC IDs |
+| 1 | No FAIL observed in executed FE+BE provider automation scope for this run. | N/A | Remaining risk comes from unimplemented automation coverage, not from executed failures. | Executed PASS set (23 TC IDs) |
+| 2 | | | | |
+| 3 | | | | |
 
 ### Blocked Items
 
+List any tests that could not run and why:
+
 | TC ID | Reason Blocked | Action Needed |
 |-------|---------------|---------------|
-| 241 checklist TC IDs (all BLOCKED rows) | Case-level automation not implemented yet; currently represented by test.fixme placeholders. | Implement deterministic automation per module and rerun FE+BE suites to convert BLOCKED into PASS/FAIL evidence. |
+| Remaining non-executed checklist rows (256 TC IDs) | Automation for these rows is not implemented yet in FE/BE suites; represented by `test.fixme` blockers in current baseline. | Implement deterministic automation per module and rerun to convert BLOCKED into PASS/FAIL evidence. |
 
 ### Recommendations
 
-1. Fix backend authorization for provider-token access on admin endpoints covered by A-AUTH-P02/P03/P05/P07.
-2. Fix SQL query/schema mismatch in `/api/payment/get-all-payments` (unknown `providers.first_name`) to eliminate A-AUTH-P04 500 errors.
-3. Keep strict assertions (do not relax to 200/422) so security/contract regressions remain visible in CI.
-4. Continue replacing `test.fixme` placeholders with deterministic tests, priority: Dashboard -> Provider -> Patient -> Financial.
-5. Re-run FE+BE suites after each fix batch and update row-level report statuses immediately.
+1. Continue implementing provider checklist automation module-by-module (Onboarding -> Inquiry -> Quote -> Appointment -> Treatment -> Aftercare) to reduce the 256 BLOCKED cases.
+2. Keep strict auth/contract assertions in backend provider tests so permission regressions remain visible early.
+3. Keep provider smoke/auth tests deterministic by handling onboarding modal preconditions before navbar interactions.
+4. Re-run FE and BE suites after each batch and update this report row-level immediately to maintain traceability.
